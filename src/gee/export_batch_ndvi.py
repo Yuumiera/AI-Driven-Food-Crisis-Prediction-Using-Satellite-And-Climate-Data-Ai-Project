@@ -1,6 +1,6 @@
 import ee
 
-# ✅ GEE bağlantısı (auth varsa skip)
+# GEE bağlantısı
 try:
     ee.Initialize()
     print("✅ GEE zaten başlatıldı.")
@@ -9,7 +9,7 @@ except Exception:
     ee.Authenticate(auth_mode='notebook')
     ee.Initialize()
 
-# ✅ NDVI Export Fonksiyonu
+# NDVI Export Fonksiyonu
 def export_ndvi_patch(region, start_date, end_date, filename, scale=10):
     collection = (
         ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
@@ -40,18 +40,17 @@ def export_ndvi_patch(region, start_date, end_date, filename, scale=10):
         maxPixels=1e13
     )
     task.start()
-    print(f"✅ Export task started for {filename}")
+    print(f"🚀 Export task started for {filename}")
 
-# ✅ Somali – Dar ve kurak alan
-region = ee.Geometry.Rectangle([42.0, 1.5, 43.0, 2.5])
+# 📍 Avrupa bölgesi (örnek: Macaristan civarı / Orta Avrupa)
+region = ee.Geometry.Rectangle([16.0, 46.0, 21.0, 49.0])  # [minLng, minLat, maxLng, maxLat]
 
-# ⏳ Yaz ayları (kurak mevsim)
+# 🗓️ Yaz ayları (kuraklık gözlemi için)
 months = [
-    ('2022-07-01', '2022-07-31'),
     ('2023-07-01', '2023-07-31'),
 ]
 
-# ✅ Tüm batch export'ları başlat
+# 🔄 Batch Export
 for start, end in months:
-    filename = f"ndvi_patch_somali_{start[:7].replace('-', '')}"
+    filename = f"ndvi_patch_europe_{start[:7].replace('-', '')}"
     export_ndvi_patch(region, start, end, filename)

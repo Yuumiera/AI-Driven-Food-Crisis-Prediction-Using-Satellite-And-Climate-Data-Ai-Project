@@ -1,0 +1,15 @@
+file_name,total_patches,drought_patches,drought_ratio
+ndvi_patch_201807 (1)_predicted.tif,31002623,0,0.0000
+ndvi_patch_201807_predicted.tif,496776680,9489242,0.0191
+ndvi_patch_201908_predicted.tif,496776680,10512229,0.0212
+ndvi_patch_202108_predicted.tif,496776680,9884637,0.0199
+ndvi_patch_202007_predicted.tif,496776680,10396899,0.0209
+ndvi_patch_202307_predicted.tif,496776680,9176155,0.0185
+ndvi_patch_afghanistan_202307_predicted.tif,124066152,0,0.0000
+ndvi_patch_somali_202307_kurak_predicted.tif,123954822,52701133,0.4252
+ndvi_patch_somali_kurak_202307_predicted.tif,123954822,52701133,0.4252
+ndvi_patch_brazil_cerrado_202307_predicted.tif,124010487,199299,0.0016
+ndvi_patch_australia_202307_predicted.tif,124055019,0,0.0000
+ndvi_patch_california_202307_predicted.tif,124066152,38370066,0.3093
+ndvi_patch_iran_202307_predicted.tif,124055019,0,0.0000
+ndvi_patch_201807 (1)_predicted_predicted.tif,31002623,0,0.0000
