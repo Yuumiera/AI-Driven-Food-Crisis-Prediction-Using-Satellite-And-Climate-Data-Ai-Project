@@ -3,7 +3,8 @@ data/processed/
 GEE_NDVI/
 
 # MODEL WEIGHTS
-models/*.pth
+models/
+some_tifs/
 
 # Python cache
 __pycache__/

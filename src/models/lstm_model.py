@@ -117,3 +117,5 @@ def main(country_name="Turkey", start_year=2020, end_year=2024):
 
 # Çalıştırmak için:
 #main("Brazil")  # veya "Turkey", "India", vs.
+
+

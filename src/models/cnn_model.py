@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/content/drive/MyDrive/food_crisis_prediction2')
+sys.path.append('/Users/ahmetbekir/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data')
 
 
 import torch
@@ -105,7 +105,7 @@ def run_cnn_pipeline_multi(tif_folder):
     from tqdm import tqdm
     import rasterio
 
-    model_path = "/content/drive/MyDrive/food_crisis_prediction2/models/cnn_resnet18_drought.pth"
+    model_path = "/Users/ahmetbekir/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data/models/cnn_resnet18_drought.pth"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = build_cnn_model().to(device)
@@ -178,3 +178,104 @@ def run_cnn_pipeline_multi(tif_folder):
     return True
 
 
+# import os
+# import numpy as np
+# import torch
+# import rasterio
+# from torchvision import models
+# import torch.nn as nn
+# from tqdm import tqdm
+# import gc
+
+# def build_cnn_model():
+#     model = models.resnet18(weights='IMAGENET1K_V1')
+#     model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+#     model.fc = nn.Linear(model.fc.in_features, 1)
+#     return model
+
+# def generate_predicted_tifs(
+#     tif_folder,
+#     model_path,
+#     output_suffix="_predicted.tif",
+#     patch_size=128,
+#     stride=128,
+#     batch_size=512,
+#     device=None
+# ):
+#     """
+#     Verilen klasördeki .tif dosyalarını CNN modeliyle işleyip, tahmin (_predicted) tif'leri üretir.
+
+#     Args:
+#         tif_folder (str): NDVI .tif dosyalarının bulunduğu klasör
+#         model_path (str): Eğitilmiş CNN modelin yol (pth uzantılı)
+#         output_suffix (str): Çıktı dosyasının uzantı eki (varsayılan '_predicted.tif')
+#         patch_size (int): CNN giriş yaması boyutu
+#         stride (int): Yama geçiş adımı
+#         batch_size (int): İnferans batch boyutu
+#         device (torch.device): GPU varsa belirt, yoksa otomatik seçilir
+#     """
+#     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+#     # Modeli yükle
+#     model = build_cnn_model().to(device)
+#     model.load_state_dict(torch.load(model_path, map_location=device))
+#     model.eval()
+#     model = model.half()  # İnferans için hız avantajı
+
+#     tif_files = [f for f in os.listdir(tif_folder) if f.endswith(".tif") and output_suffix not in f]
+
+#     for tif_name in tqdm(tif_files):
+#         tif_path = os.path.join(tif_folder, tif_name)
+
+#         with rasterio.open(tif_path) as src:
+#             ndvi = src.read(1)
+#             profile = src.profile
+
+#         # NDVI normalize
+#         ndvi = np.clip(ndvi, -1, 1)
+#         ndvi = (ndvi + 1) / 2
+
+#         h, w = ndvi.shape
+#         patches, coords = [], []
+
+#         for i in range(0, h - patch_size + 1, stride):
+#             for j in range(0, w - patch_size + 1, stride):
+#                 patch = ndvi[i:i+patch_size, j:j+patch_size]
+#                 if np.isnan(patch).any():
+#                     continue
+#                 patch_tensor = patch.astype(np.float16)[np.newaxis, :, :]  # [1, H, W]
+#                 patches.append(patch_tensor)
+#                 coords.append((i, j))
+
+#         if len(patches) == 0:
+#             print(f"⚠️ {tif_name} içinde geçerli yama bulunamadı.")
+#             continue
+
+#         # Tahmin et
+#         probs = []
+#         for i in range(0, len(patches), batch_size):
+#             batch = patches[i:i+batch_size]
+#             batch_tensor = torch.tensor(np.stack(batch)).to(device).half()
+#             with torch.no_grad():
+#                 output = model(batch_tensor)
+#                 batch_probs = torch.sigmoid(output).cpu().numpy().flatten()
+#                 probs.extend(batch_probs)
+#             del batch_tensor
+#             torch.cuda.empty_cache()
+
+#         # Heatmap oluştur
+#         heatmap = np.zeros((h // stride, w // stride), dtype=np.float32)
+#         for idx, (i, j) in enumerate(coords):
+#             heatmap[i // stride, j // stride] = probs[idx]
+
+#         # Tif yaz
+#         profile.update(dtype=rasterio.float32, count=1, compress='lzw')
+#         out_path = os.path.join(tif_folder, tif_name.replace(".tif", output_suffix))
+#         with rasterio.open(out_path, 'w', **profile) as dst:
+#             dst.write(heatmap, 1)
+
+#         print(f"✅ {tif_name} → {os.path.basename(out_path)} oluşturuldu.")
+
+#         gc.collect()
+
+#     print("🎯 Tüm tif dosyaları işlendi.")
