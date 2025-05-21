@@ -29,7 +29,7 @@ def analyze_drought_for_region(region_name):
         region_to_tif = {
             "sanliurfa": "some_tifs/ndvi_patch_201908_predicted.tif",
             "punjab": "some_tifs/ndvi_patch_afghanistan_202307_predicted.tif",
-            "yunnan": "some_tifs/ndvi_patch_australia_202307_predicted.tif",
+            "avustralia": "some_tifs/ndvi_patch_australia_202307_predicted.tif",
             "munich": "some_tifs/ndvi_patch_europe_202307-0000000000-0000000000_predicted.tif",
             "california": "some_tifs/ndvi_patch_california_202307_predicted.tif",
             "iowa": "some_tifs/iowa_05-2025.tif",

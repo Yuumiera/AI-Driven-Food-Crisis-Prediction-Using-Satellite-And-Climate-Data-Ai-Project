@@ -25,7 +25,7 @@ def analyze_drought_for_region(region_name, chunk_size=1000):
     Analyze drought for a region by processing the TIF file in chunks.
     
     Args:
-        region_name (str): Region name (e.g., 'sanliurfa')
+        region_name (str): Region name (e.g., 'sanliurfa', 'avustralia')
         chunk_size (int): Size of chunks to process at once
     
     Returns:
@@ -34,6 +34,8 @@ def analyze_drought_for_region(region_name, chunk_size=1000):
     try:
         region_to_tif = {
             "sanliurfa": "ndvi_patch_201908_predicted.tif",
+            "avustralia": "ndvi_patch_australia_202307_predicted.tif",
+            "california": "ndvi_patch_california_202307_predicted.tif",
         }
 
         tif_dir = "/Users/ahmetbekir/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data/some_tifs"

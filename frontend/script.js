@@ -10,12 +10,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const statsContent = document.getElementById('statsContent');
     const heatmapImage = document.getElementById('heatmapImage');
     const classificationImage = document.getElementById('classificationImage');
+    const ndviPlotImage = document.getElementById('ndviPlotImage');
 
     // Available regions list
     const regions = [
         'sanliurfa',
+        'avustralia',
         'punjab',
-        'yunnan',
         'munich',
         'california',
         'iowa',
@@ -27,6 +28,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Create dropdown items
     function createDropdownItems(filteredRegions, dropdownMenu, searchInput, isTopBar = false) {
         dropdownMenu.innerHTML = '';
+
+        // Eğer filtreleme sonucu boşsa dropdown'ı gizle
+        if (filteredRegions.length === 0) {
+            dropdownMenu.classList.remove('show');
+            return;
+        }
+
         filteredRegions.forEach(region => {
             const li = document.createElement('li');
             const a = document.createElement('a');
@@ -37,10 +45,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 e.preventDefault();
                 searchInput.value = region;
                 if (!isTopBar) {
-                    // When selection is made from main search bar
                     await analyzeRegion(region);
                 } else {
-                    // When selection is made from top search bar
                     await analyzeRegion(region);
                 }
                 dropdownMenu.classList.remove('show');
@@ -59,72 +65,120 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Update statistics display
-    function updateStats(stats) {
+    function updateStats(droughtStats, ndviStats) {
         const statsHTML = `
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="stat-item">
-                    <div class="stat-label">Mean Score</div>
-                    <div class="stat-value">${stats.mean_score.toFixed(3)}</div>
+                    <div class="stat-label">Last NDVI</div>
+                    <div class="stat-value">${ndviStats.last_ndvi.toFixed(3)}</div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="stat-item">
                     <div class="stat-label">Drought Ratio</div>
-                    <div class="stat-value">${stats.drought_ratio.toFixed(1)}%</div>
+                    <div class="stat-value">${droughtStats.drought_ratio.toFixed(1)}%</div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <div class="stat-label">NDVI R² Score</div>
+                    <div class="stat-value">${ndviStats.metrics.r2.toFixed(3)}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
                 <div class="stat-item">
                     <div class="stat-label">Severity (Max Score)</div>
-                    <div class="stat-value">${stats.max_score.toFixed(3)}</div>
+                    <div class="stat-value">${droughtStats.max_score.toFixed(3)}</div>
                 </div>
             </div>
         `;
         statsContent.innerHTML = statsHTML;
     }
 
+    // Update future NDVI predictions table
+    function updateFutureNdviTable(futureNdvi) {
+        const tbody = document.querySelector('#futureNdviTable tbody');
+        tbody.innerHTML = '';
+
+        for (const [month, value] of Object.entries(futureNdvi)) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${month}</td>
+                <td>${value.toFixed(3)}</td>
+            `;
+            tbody.appendChild(row);
+        }
+    }
+
     // Analyze region and update UI
     async function analyzeRegion(region) {
         try {
-            const response = await fetch(`/analyze_drought?region=${region}`);
-            const data = await response.json();
+            // Get drought analysis results
+            const droughtResponse = await fetch(`/analyze_drought?region=${region}`);
+            const droughtData = await droughtResponse.json();
 
-            if (data.error) {
-                console.error('Analysis error:', data.error);
+            if (droughtData.error) {
+                console.error('Drought analysis error:', droughtData.error);
+                return;
+            }
+
+            // Get NDVI prediction results
+            const ndviResponse = await fetch(`/predict_ndvi?region=${region}`);
+            const ndviData = await ndviResponse.json();
+
+            if (ndviData.error) {
+                console.error('NDVI prediction error:', ndviData.error);
                 return;
             }
 
             // Update UI with results
             selectedRegion.textContent = `Selected region: ${region.charAt(0).toUpperCase() + region.slice(1)}`;
-            heatmapImage.src = `data:image/png;base64,${data.heatmap_image}`;
-            classificationImage.src = `data:image/png;base64,${data.classification_image}`;
-            updateStats(data.stats);
+
+            // Update drought analysis visualizations
+            document.getElementById('droughtHeatmap').src = 'data:image/png;base64,' + droughtData.heatmap_image;
+            document.getElementById('droughtClassification').src = 'data:image/png;base64,' + droughtData.classification_image;
+
+            // Update NDVI prediction visualizations
+            document.getElementById('ndviPlot').src = 'data:image/png;base64,' + ndviData.plot_image;
+            updateFutureNdviTable(ndviData.future_ndvi);
+
+            // Update statistics
+            updateStats(droughtData.stats, ndviData);
+
             showResults();
         } catch (error) {
             console.error('Error analyzing region:', error);
         }
     }
 
-    // Initialize dropdowns
-    createDropdownItems(regions, dropdownMenu, searchInput);
-    createDropdownItems(regions, topDropdownMenu, topSearchInput, true);
-
     // Search functionality for main search bar
     searchInput.addEventListener('input', function () {
         const searchTerm = this.value.toLowerCase();
+        if (searchTerm.length === 0) {
+            dropdownMenu.classList.remove('show');
+            return;
+        }
+
         const filteredRegions = regions.filter(region =>
-            region.toLowerCase().includes(searchTerm)
+            region.toLowerCase().startsWith(searchTerm)
         );
         createDropdownItems(filteredRegions, dropdownMenu, searchInput);
+        dropdownMenu.classList.add('show');
     });
 
     // Search functionality for top search bar
     topSearchInput.addEventListener('input', function () {
         const searchTerm = this.value.toLowerCase();
+        if (searchTerm.length === 0) {
+            topDropdownMenu.classList.remove('show');
+            return;
+        }
+
         const filteredRegions = regions.filter(region =>
-            region.toLowerCase().includes(searchTerm)
+            region.toLowerCase().startsWith(searchTerm)
         );
         createDropdownItems(filteredRegions, topDropdownMenu, topSearchInput, true);
+        topDropdownMenu.classList.add('show');
     });
 
     // Close dropdowns when clicking outside
@@ -137,12 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Show dropdowns on input click
-    searchInput.addEventListener('click', function () {
-        dropdownMenu.classList.add('show');
-    });
-
-    topSearchInput.addEventListener('click', function () {
-        topDropdownMenu.classList.add('show');
-    });
+    // Remove click event listeners for showing dropdowns
+    searchInput.removeEventListener('click', function () { });
+    topSearchInput.removeEventListener('click', function () { });
 }); 

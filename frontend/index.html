@@ -70,29 +70,57 @@
                     <div class="results-content">
                         <!-- Statistics Card -->
                         <div class="stats-card mb-4">
-                            <h3 class="stats-title">Drought Analysis Statistics</h3>
+                            <h3 class="stats-title">Analysis Statistics</h3>
                             <div class="row" id="statsContent">
                                 <!-- Statistics will be populated here -->
                             </div>
                         </div>
 
                         <!-- Visualizations -->
-                        <div class="row">
-                            <!-- Heatmap -->
-                            <div class="col-md-6 mb-4">
-                                <div class="visualization-card">
-                                    <h4>Drought Heatmap</h4>
-                                    <div class="visualization-container">
-                                        <img id="heatmapImage" class="img-fluid" alt="Drought Heatmap">
+                        <div class="visualization-container">
+                            <div class="row">
+                                <!-- Drought Analysis -->
+                                <div class="col-md-6">
+                                    <div class="card mb-4">
+                                        <div class="card-header">
+                                            <h5 class="card-title mb-0">Drought Analysis</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="visualization-wrapper">
+                                                <img id="droughtHeatmap" class="img-fluid visualization-img"
+                                                    alt="Drought Heatmap">
+                                            </div>
+                                            <div class="visualization-wrapper mt-3">
+                                                <img id="droughtClassification" class="img-fluid visualization-img"
+                                                    alt="Drought Classification">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <!-- Classification Map -->
-                            <div class="col-md-6 mb-4">
-                                <div class="visualization-card">
-                                    <h4>Drought Classification</h4>
-                                    <div class="visualization-container">
-                                        <img id="classificationImage" class="img-fluid" alt="Drought Classification">
+
+                                <!-- NDVI Prediction -->
+                                <div class="col-md-6">
+                                    <div class="card mb-4">
+                                        <div class="card-header">
+                                            <h5 class="card-title mb-0">NDVI Prediction</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="visualization-wrapper">
+                                                <img id="ndviPlot" class="img-fluid visualization-img"
+                                                    alt="NDVI Prediction Plot">
+                                            </div>
+                                            <div class="table-responsive mt-3">
+                                                <table class="table table-striped" id="futureNdviTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Month</th>
+                                                            <th>Predicted NDVI</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -107,6 +135,53 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JavaScript -->
     <script src="script.js"></script>
+
+    <style>
+        .visualization-container {
+            margin-top: 20px;
+        }
+
+        .visualization-wrapper {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            /* 16:9 aspect ratio */
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .visualization-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 10px;
+        }
+
+        .card {
+            height: 100%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-body {
+            padding: 1.25rem;
+        }
+
+        .table-responsive {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .visualization-wrapper {
+                padding-bottom: 75%;
+                /* 4:3 aspect ratio for mobile */
+            }
+        }
+    </style>
 </body>
 
 </html>
