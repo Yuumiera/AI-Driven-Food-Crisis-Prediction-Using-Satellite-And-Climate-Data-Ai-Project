@@ -148,16 +148,69 @@ body {
 
 .results-content {
     padding: 24px;
+}
+
+/* Statistics Card Styles */
+.stats-card {
     background: #fff;
-    border-radius: 8px;
+    border-radius: 12px;
+    padding: 24px;
     box-shadow: 0 1px 6px rgba(32, 33, 36, .28);
 }
 
-.placeholder-text {
+.stats-title {
+    color: #202124;
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.stat-label {
     color: #5f6368;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    color: #202124;
+    font-size: 24px;
+    font-weight: 500;
+}
+
+/* Visualization Card Styles */
+.visualization-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 6px rgba(32, 33, 36, .28);
+    height: 100%;
+}
+
+.visualization-card h4 {
+    color: #202124;
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-bottom: 16px;
+}
+
+.visualization-container {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
     text-align: center;
-    font-size: 16px;
-    padding: 40px 0;
+}
+
+.visualization-container img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
 }
 
 /* Responsive adjustments */
@@ -180,5 +233,13 @@ body {
 
     .top-search-bar .input-group {
         max-width: 100%;
+    }
+
+    .stat-value {
+        font-size: 20px;
+    }
+
+    .visualization-card {
+        margin-bottom: 16px;
     }
 }

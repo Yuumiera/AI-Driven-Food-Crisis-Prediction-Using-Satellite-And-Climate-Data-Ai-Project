@@ -9,3 +9,4 @@ opencv-python
 Pillow
 gdown
 ipykernel
+flask==3.0.2
