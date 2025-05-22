@@ -307,3 +307,44 @@ body {
     object-fit: contain;
     padding: 10px;
 }
+
+.drought-score-container {
+    padding: 20px;
+    text-align: center;
+}
+
+.drought-score-container .stat-item {
+    margin: 0 auto;
+    max-width: 300px;
+}
+
+.drought-score-container .stat-label {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.drought-score-container .stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.drought-score-container .stat-value.low-risk {
+    color: #28a745;
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.drought-score-container .stat-value.medium-risk {
+    color: #ffc107;
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
+.drought-score-container .stat-value.high-risk {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+}

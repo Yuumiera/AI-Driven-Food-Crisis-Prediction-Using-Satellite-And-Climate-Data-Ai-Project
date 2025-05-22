@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <div class="col-md-3">
                 <div class="stat-item">
-                    <div class="stat-label">Drought Risk</div>
+                    <div class="stat-label">Drought Percentage</div>
                     <div class="stat-value ${colorClass}">
                         ${droughtRatio.toFixed(1)}%
                         <div class="risk-indicator ${colorClass}"></div>
@@ -227,6 +227,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.warn('Drought plot element not found');
             }
         }
+
+        // LSTM skorunu label'a göre güncelle
+        if (data.score !== undefined) {
+            const statsContent = document.getElementById('statsContent');
+            if (statsContent) {
+                const statItems = statsContent.querySelectorAll('.stat-item');
+                statItems.forEach(item => {
+                    const label = item.querySelector('.stat-label');
+                    if (label && label.textContent.includes('LSTM Drought Score')) {
+                        const value = item.querySelector('.stat-value');
+                        if (value) value.textContent = data.score.toFixed(2);
+                    }
+                });
+            }
+        }
     }
 
     // Analyze region and update UI
@@ -270,18 +285,20 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Update drought analysis visualizations
-            const heatmapImg = document.getElementById('droughtHeatmap');
-            if (heatmapImg && droughtData.heatmap_image) {
-                heatmapImg.src = 'data:image/png;base64,' + droughtData.heatmap_image;
-            } else {
-                console.warn('Heatmap image or element not found');
-            }
+            const droughtScoreElement = document.getElementById('droughtScore');
+            if (droughtScoreElement && droughtData.stats) {
+                const droughtRatio = droughtData.stats.drought_ratio || 0;
+                droughtScoreElement.textContent = `${droughtRatio.toFixed(1)}%`;
 
-            const classificationImg = document.getElementById('classificationImage');
-            if (classificationImg && droughtData.classification_image) {
-                classificationImg.src = 'data:image/png;base64,' + droughtData.classification_image;
-            } else {
-                console.warn('Classification image or element not found');
+                // Add color class based on drought ratio
+                droughtScoreElement.className = 'stat-value';
+                if (droughtRatio < 25) {
+                    droughtScoreElement.classList.add('low-risk');
+                } else if (droughtRatio < 55) {
+                    droughtScoreElement.classList.add('medium-risk');
+                } else {
+                    droughtScoreElement.classList.add('high-risk');
+                }
             }
 
             // Update NDVI prediction visualizations
@@ -307,15 +324,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            // Start polling for LSTM data
-            pollLSTMData(region);
-
             // Update statistics with initial data
             updateStats(
                 droughtData.stats || { drought_ratio: 0 },
-                ndviData.stats || { last_ndvi: null },
+                { last_ndvi: ndviData.last_ndvi },
                 null
             );
+
+            // Start polling for LSTM data
+            pollLSTMData(region);
 
             console.log('Showing results...');
             showResults();
