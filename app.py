@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, send_from_directory
 from src.analyze_drought import analyze_drought_for_region
 from src.tester.predict_ndvi import predict_ndvi
+from src.ananlys_era5 import predict_drought_score, get_lstm_trend_and_plot
 import logging
 import traceback
 
@@ -72,6 +73,18 @@ def predict_ndvi_endpoint():
         logger.error(f"Error during NDVI prediction for region {region}: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({'error': f'Error during NDVI prediction: {str(e)}'}), 500
+
+@app.route('/predict_lstm_drought')
+def predict_lstm_drought():
+    region = request.args.get('region')
+    if not region:
+        return jsonify({'error': 'Region parameter is required'}), 400
+    try:
+        # Trend ve plot al
+        scores, plot_base64 = get_lstm_trend_and_plot(region)
+        return jsonify({'score': scores[-1], 'trend_plot': plot_base64})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001, host='0.0.0.0') 
