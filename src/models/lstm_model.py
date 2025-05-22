@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import LSTM, Dense, Input
 import time
 
 def get_monthly_modis_ndvi(region, start_year, end_year):
@@ -41,6 +41,15 @@ def create_dataset(data, window_size=6):
         y.append(data[i+window_size])
     return np.array(X), np.array(y)
 
+def create_model(window_size=6):
+    model = Sequential([
+        Input(shape=(window_size, 1), name='input_layer'),
+        LSTM(64),
+        Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='mse')
+    return model
+
 def main(country_name="Turkey", start_year=2020, end_year=2024):
     start_time = time.time()
 
@@ -63,11 +72,7 @@ def main(country_name="Turkey", start_year=2020, end_year=2024):
 
     # Dataset
     X, y = create_dataset(ndvi_scaled)
-    model = Sequential([
-        LSTM(64, input_shape=(X.shape[1], X.shape[2])),
-        Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mse')
+    model = create_model()
     model.fit(X, y, epochs=200, batch_size=8, verbose=0)
 
     # Tahmin
@@ -107,7 +112,7 @@ def main(country_name="Turkey", start_year=2020, end_year=2024):
     plt.show()
 
     # Kayıt
-    model_path = f"/content/drive/MyDrive/food_crisis_prediction2/models/lstm_ndvi_model_modis_{country_name}.h5"
+    model_path = f"models/lstm_ndvi_model_{country_name}.h5"
     model.save(model_path)
     print(f"💾 Model kaydedildi: {model_path}")
 

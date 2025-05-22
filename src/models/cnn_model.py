@@ -106,6 +106,7 @@ def run_cnn_pipeline_multi(tif_folder):
     import rasterio
 
     model_path = "/Users/ahmetbekir/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data/models/cnn_resnet18_drought.pth"
+    #model_path = "models/best_resnet_model.pth"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = build_cnn_model().to(device)

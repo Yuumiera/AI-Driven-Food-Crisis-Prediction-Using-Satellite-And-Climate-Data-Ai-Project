@@ -12,17 +12,21 @@ document.addEventListener('DOMContentLoaded', function () {
     const classificationImage = document.getElementById('classificationImage');
     const ndviPlotImage = document.getElementById('ndviPlotImage');
 
-    // Available regions list
+    // Available regions list with friendly names
     const regions = [
-        'sanliurfa',
-        'avustralia',
-        'punjab',
-        'munich',
-        'california',
-        'iowa',
-        'kano',
-        'zacatecas',
-        'gauteng'
+        { id: 'sanliurfa', name: 'Şanlıurfa, Türkiye' },
+        { id: 'punjab', name: 'Punjab, Hindistan' },
+        { id: 'munich', name: 'Münih, Almanya' },
+        { id: 'iowa', name: 'Iowa, ABD' },
+        { id: 'kano', name: 'Kano, Nijerya' },
+        { id: 'zacatecas', name: 'Zacatecas, Meksika' },
+        { id: 'gauteng', name: 'Gauteng, Güney Afrika' },
+        { id: 'addis_ababa', name: 'Addis Ababa, Etiyopya' },
+        { id: 'yunnan', name: 'Yunnan, Çin' },
+        { id: 'gujarat', name: 'Gujarat, Hindistan' },
+        { id: 'cordoba', name: 'Córdoba, Arjantin' },
+        { id: 'mato_grosso', name: 'Mato Grosso, Brezilya' },
+        { id: 'nsw', name: 'New South Wales, Avustralya' }
     ];
 
     // Create dropdown items
@@ -39,15 +43,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const li = document.createElement('li');
             const a = document.createElement('a');
             a.className = 'dropdown-item';
-            a.textContent = region.charAt(0).toUpperCase() + region.slice(1);
+            a.textContent = region.name;
             a.href = '#';
             a.addEventListener('click', async (e) => {
                 e.preventDefault();
-                searchInput.value = region;
+                searchInput.value = region.name;
                 if (!isTopBar) {
-                    await analyzeRegion(region);
+                    await analyzeRegion(region.id);
                 } else {
-                    await analyzeRegion(region);
+                    await analyzeRegion(region.id);
                 }
                 dropdownMenu.classList.remove('show');
             });
@@ -58,14 +62,46 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Show top search bar and results
     function showResults() {
-        mainContent.classList.add('hidden');
-        topSearchBar.classList.add('visible');
+        console.log('Showing results section...');
+        const resultsSection = document.getElementById('resultsSection');
+        const mainContent = document.getElementById('mainContent');
+        const topSearchBar = document.getElementById('topSearchBar');
+
+        if (!resultsSection || !mainContent || !topSearchBar) {
+            console.error('Required elements not found:', {
+                resultsSection: !!resultsSection,
+                mainContent: !!mainContent,
+                topSearchBar: !!topSearchBar
+            });
+            return;
+        }
+
+        console.log('Setting display properties...');
+        resultsSection.style.display = 'block';
+        mainContent.style.display = 'none';
+        topSearchBar.style.display = 'block';
+
+        console.log('Adding visible class to results section...');
         resultsSection.classList.add('visible');
-        window.scrollTo(0, 0);
+        topSearchBar.classList.add('visible');
+
+        console.log('Results section shown successfully');
     }
 
     // Update statistics display
     function updateStats(droughtStats, ndviStats) {
+        // Determine color based on drought ratio
+        let colorClass = '';
+        const droughtRatio = droughtStats.drought_ratio;
+
+        if (droughtRatio < 25) {
+            colorClass = 'low-risk';  // Green
+        } else if (droughtRatio < 55) {
+            colorClass = 'medium-risk';  // Yellow/Orange
+        } else {
+            colorClass = 'high-risk';  // Red
+        }
+
         const statsHTML = `
             <div class="col-md-3">
                 <div class="stat-item">
@@ -75,20 +111,11 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <div class="col-md-3">
                 <div class="stat-item">
-                    <div class="stat-label">Drought Ratio</div>
-                    <div class="stat-value">${droughtStats.drought_ratio.toFixed(1)}%</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-item">
-                    <div class="stat-label">NDVI R² Score</div>
-                    <div class="stat-value">${ndviStats.metrics.r2.toFixed(3)}</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-item">
-                    <div class="stat-label">Severity (Max Score)</div>
-                    <div class="stat-value">${droughtStats.max_score.toFixed(3)}</div>
+                    <div class="stat-label">Drought Risk</div>
+                    <div class="stat-value ${colorClass}">
+                        ${droughtStats.drought_ratio.toFixed(1)}%
+                        <div class="risk-indicator ${colorClass}"></div>
+                    </div>
                 </div>
             </div>
         `;
@@ -113,41 +140,69 @@ document.addEventListener('DOMContentLoaded', function () {
     // Analyze region and update UI
     async function analyzeRegion(region) {
         try {
+            console.log('Starting analysis for region:', region);
+
             // Get drought analysis results
+            console.log('Fetching drought analysis...');
             const droughtResponse = await fetch(`/analyze_drought?region=${region}`);
+            if (!droughtResponse.ok) {
+                throw new Error(`Drought analysis failed: ${droughtResponse.statusText}`);
+            }
             const droughtData = await droughtResponse.json();
+            console.log('Drought analysis response:', droughtData);
 
             if (droughtData.error) {
                 console.error('Drought analysis error:', droughtData.error);
-                return;
+                throw new Error(droughtData.error);
             }
 
             // Get NDVI prediction results
+            console.log('Fetching NDVI prediction...');
             const ndviResponse = await fetch(`/predict_ndvi?region=${region}`);
+            if (!ndviResponse.ok) {
+                throw new Error(`NDVI prediction failed: ${ndviResponse.statusText}`);
+            }
             const ndviData = await ndviResponse.json();
+            console.log('NDVI prediction response:', ndviData);
 
             if (ndviData.error) {
                 console.error('NDVI prediction error:', ndviData.error);
-                return;
+                throw new Error(ndviData.error);
             }
 
             // Update UI with results
+            console.log('Updating UI...');
             selectedRegion.textContent = `Selected region: ${region.charAt(0).toUpperCase() + region.slice(1)}`;
 
             // Update drought analysis visualizations
-            document.getElementById('droughtHeatmap').src = 'data:image/png;base64,' + droughtData.heatmap_image;
-            document.getElementById('droughtClassification').src = 'data:image/png;base64,' + droughtData.classification_image;
+            const heatmapImg = document.getElementById('droughtHeatmap');
+            const classificationImg = document.getElementById('droughtClassification');
+
+            if (!heatmapImg || !classificationImg) {
+                throw new Error('Could not find heatmap or classification image elements');
+            }
+
+            console.log('Updating images...');
+            heatmapImg.src = 'data:image/png;base64,' + droughtData.heatmap_image;
+            classificationImg.src = 'data:image/png;base64,' + droughtData.classification_image;
 
             // Update NDVI prediction visualizations
-            document.getElementById('ndviPlot').src = 'data:image/png;base64,' + ndviData.plot_image;
+            const ndviPlotImg = document.getElementById('ndviPlot');
+            if (!ndviPlotImg) {
+                throw new Error('Could not find NDVI plot image element');
+            }
+
+            ndviPlotImg.src = 'data:image/png;base64,' + ndviData.plot_image;
             updateFutureNdviTable(ndviData.future_ndvi);
 
             // Update statistics
             updateStats(droughtData.stats, ndviData);
 
+            console.log('Showing results...');
             showResults();
         } catch (error) {
             console.error('Error analyzing region:', error);
+            alert(`Error analyzing region: ${error.message}`);
         }
     }
 
@@ -160,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const filteredRegions = regions.filter(region =>
-            region.toLowerCase().startsWith(searchTerm)
+            region.name.toLowerCase().includes(searchTerm)
         );
         createDropdownItems(filteredRegions, dropdownMenu, searchInput);
         dropdownMenu.classList.add('show');
@@ -175,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const filteredRegions = regions.filter(region =>
-            region.toLowerCase().startsWith(searchTerm)
+            region.name.toLowerCase().includes(searchTerm)
         );
         createDropdownItems(filteredRegions, topDropdownMenu, topSearchInput, true);
         topDropdownMenu.classList.add('show');

@@ -11,6 +11,8 @@ import base64
 from io import BytesIO
 import logging
 import matplotlib.dates as mdates
+from tensorflow.keras.layers import InputLayer
+import traceback
 
 # Configure logging
 logging.basicConfig(
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Region to CSV file mapping
 REGION_TO_CSV = {
-    "sanliurfa": "ndvi_punjab.csv",  # Geçici olarak Punjab verilerini kullan
+    "sanliurfa": "ndvi_sanliurfa.csv",
     "avustralia": "ndvi_nsw.csv",
     "munich": "ndvi_munich.csv",
     "cordoba": "ndvi_cordoba.csv",
@@ -30,7 +32,11 @@ REGION_TO_CSV = {
     "addis_ababa": "ndvi_addis_ababa.csv",
     "yunnan": "ndvi_yunnan.csv",
     "punjab": "ndvi_punjab.csv",
-    "gujarat": "ndvi_gujarat.csv"
+    "gujarat": "ndvi_gujarat.csv",
+    "iowa": "ndvi_iowa.csv",
+    "zacatecas": "ndvi_zacatecas.csv",
+    "mato_grosso": "ndvi_mato_grosso.csv",
+    "nsw": "ndvi_nsw.csv"
 }
 
 # Get the absolute path to the project root directory
@@ -50,8 +56,9 @@ def get_csv_path(region_name):
         logger.error(error_msg)
         raise ValueError(error_msg)
     
-    csv_path = os.path.join("notebooks", "ndvi_data", csv_filename)
+    csv_path = os.path.join(PROJECT_ROOT, "notebooks", "ndvi_data", csv_filename)
     logger.debug(f"Constructed CSV path: {csv_path}")
+    logger.debug(f"File exists: {os.path.exists(csv_path)}")
     return csv_path
 
 def generate_ndvi_plot(true_values, predicted_values, future_predictions, region_name, dates):
@@ -171,10 +178,28 @@ def predict_ndvi(
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
             
-        model = load_model(model_path, compile=False)
-        logger.debug("Model loaded successfully")
+        logger.debug("Creating custom objects for model loading")
+        custom_objects = {
+            'InputLayer': lambda config: InputLayer(
+                input_shape=config.get('input_shape', (6, 1)),
+                dtype=config.get('dtype', 'float32'),
+                name=config.get('name', 'input_layer')
+            )
+        }
+        
+        logger.debug("Attempting to load model with custom objects")
+        try:
+            model = load_model(model_path, compile=False, custom_objects=custom_objects)
+            logger.debug("Model loaded successfully")
+        except Exception as model_error:
+            logger.error(f"Error loading model with custom objects: {str(model_error)}")
+            logger.debug("Attempting to load model without custom objects")
+            model = load_model(model_path, compile=False)
+            logger.debug("Model loaded successfully without custom objects")
+            
     except Exception as e:
         logger.error(f"Error loading model: {str(e)}")
+        logger.error(traceback.format_exc())
         raise
 
     # --- Tahmin ---

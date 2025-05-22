@@ -15,15 +15,15 @@ body {
     background: #fff;
     padding: 12px 24px;
     box-shadow: 0 1px 6px rgba(32, 33, 36, .28);
-    transform: translateY(-100%);
-    opacity: 0;
-    transition: all 0.3s ease;
     z-index: 1000;
+    display: none;
+    padding: 10px 0;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
 }
 
 .top-search-bar.visible {
-    transform: translateY(0);
-    opacity: 1;
+    display: block;
 }
 
 .top-search-bar .input-group {
@@ -140,6 +140,8 @@ body {
     padding-top: 80px;
     min-height: calc(100vh - 80px);
     display: none;
+    padding: 20px 0;
+    background-color: #ffffff;
 }
 
 .results-section.visible {
@@ -182,6 +184,50 @@ body {
     color: #202124;
     font-size: 24px;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Risk indicator styles */
+.risk-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+/* Risk level colors */
+.low-risk {
+    color: #2ecc71;
+    /* Green */
+}
+
+.medium-risk {
+    color: #f39c12;
+    /* Orange */
+}
+
+.high-risk {
+    color: #e74c3c;
+    /* Red */
+}
+
+.risk-indicator.low-risk {
+    background-color: #2ecc71;
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+}
+
+.risk-indicator.medium-risk {
+    background-color: #f39c12;
+    box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+}
+
+.risk-indicator.high-risk {
+    background-color: #e74c3c;
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
 }
 
 /* Visualization Card Styles */
@@ -191,6 +237,7 @@ body {
     padding: 24px;
     box-shadow: 0 1px 6px rgba(32, 33, 36, .28);
     height: 100%;
+    margin-bottom: 20px;
 }
 
 .visualization-card h4 {
@@ -205,12 +252,15 @@ body {
     border-radius: 8px;
     padding: 16px;
     text-align: center;
+    margin-bottom: 20px;
 }
 
 .visualization-container img {
     max-width: 100%;
     height: auto;
     border-radius: 4px;
+    display: block;
+    margin: 0 auto;
 }
 
 /* Responsive adjustments */

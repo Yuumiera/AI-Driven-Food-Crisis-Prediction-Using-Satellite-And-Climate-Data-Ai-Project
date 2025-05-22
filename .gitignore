@@ -6,6 +6,7 @@ GEE_NDVI/
 models/
 some_tifs/
 
+test_tifs/
 # Python cache
 __pycache__/
 *.pyc
