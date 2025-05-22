@@ -1,12 +1,15 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, render_template
 from src.analyze_drought import analyze_drought_for_region
 from src.tester.predict_ndvi import predict_ndvi
 from src.ananlys_era5 import get_lstm_trend_and_plot
+from ai_model.news_analyzer import fetch_news, analyze_news
 import logging
 import traceback
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+import os
+import glob
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +42,29 @@ def calculate_lstm(region):
             'status': 'error',
             'error': str(e)
         }
+
+def get_latest_analysis_file(country=None):
+    """
+    Get the latest analysis file for a country
+    """
+    # Get the absolute path of the project root directory
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(project_root, 'results')
+    
+    # Create pattern for file search
+    pattern = f"news_analysis_{country}_*.txt" if country else "news_analysis_*.txt"
+    search_path = os.path.join(results_dir, pattern)
+    
+    # Find all matching files
+    files = glob.glob(search_path)
+    if not files:
+        logger.warning(f"No analysis files found in {results_dir}")
+        return None
+    
+    # Get the latest file
+    latest_file = max(files, key=os.path.getctime)
+    logger.info(f"Found latest analysis file: {latest_file}")
+    return latest_file
 
 # Serve static files from frontend directory
 @app.route('/')
@@ -132,6 +158,37 @@ def predict_lstm_drought():
         return jsonify({'error': str(e)}), 500
     
     return jsonify({'status': 'calculating'})
+
+@app.route('/analyze_news', methods=['POST'])
+def analyze_news_route():
+    data = request.get_json()
+    selected_region = data.get('region')
+    
+    if not selected_region:
+        return jsonify({
+            'error': 'No region selected'
+        }), 400
+    
+    try:
+        # Fetch and analyze news for the selected region
+        articles = fetch_news(selected_region)
+        analysis_result = analyze_news(articles, selected_region)
+        
+        # Get the latest analysis file
+        latest_file = get_latest_analysis_file(selected_region)
+        if latest_file:
+            with open(latest_file, 'r', encoding='utf-8') as f:
+                analysis_result = f.read()
+        
+        return jsonify({
+            'analysis': analysis_result
+        })
+    except Exception as e:
+        logger.error(f"Error in news analysis: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'error': f'Error analyzing news: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001, host='0.0.0.0') 
