@@ -90,9 +90,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Update statistics display
     function updateStats(droughtStats, ndviStats, lstmScore) {
+        if (!statsContent) {
+            console.warn('Stats content element not found');
+            return;
+        }
+
         // Determine color based on drought ratio
         let colorClass = '';
-        const droughtRatio = droughtStats.drought_ratio;
+        const droughtRatio = droughtStats?.drought_ratio || 0;
 
         if (droughtRatio < 25) {
             colorClass = 'low-risk';  // Green
@@ -106,14 +111,14 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="col-md-3">
                 <div class="stat-item">
                     <div class="stat-label">Last NDVI</div>
-                    <div class="stat-value">${ndviStats.last_ndvi.toFixed(3)}</div>
+                    <div class="stat-value">${ndviStats?.last_ndvi?.toFixed(3) || 'N/A'}</div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="stat-item">
                     <div class="stat-label">Drought Risk</div>
                     <div class="stat-value ${colorClass}">
-                        ${droughtStats.drought_ratio.toFixed(1)}%
+                        ${droughtRatio.toFixed(1)}%
                         <div class="risk-indicator ${colorClass}"></div>
                     </div>
                 </div>
@@ -130,16 +135,97 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Update future NDVI predictions table
     function updateFutureNdviTable(futureNdvi) {
+        if (!futureNdvi) {
+            console.warn('No future NDVI data available');
+            return;
+        }
+
         const tbody = document.querySelector('#futureNdviTable tbody');
+        if (!tbody) {
+            console.warn('Future NDVI table body not found');
+            return;
+        }
+
         tbody.innerHTML = '';
 
         for (const [month, value] of Object.entries(futureNdvi)) {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${month}</td>
-                <td>${value.toFixed(3)}</td>
+                <td>${typeof value === 'number' ? value.toFixed(3) : 'N/A'}</td>
             `;
             tbody.appendChild(row);
+        }
+    }
+
+    // LSTM verilerini periyodik olarak kontrol et
+    async function pollLSTMData(region) {
+        const maxAttempts = 60; // 5 dakika (5 saniye * 60)
+        let attempts = 0;
+
+        // Loading state göster
+        const temperaturePlotImg = document.getElementById('temperaturePlot');
+        const droughtPlotImg = document.getElementById('droughtPlot');
+        if (temperaturePlotImg) {
+            temperaturePlotImg.src = 'images/loading.gif';
+        }
+        if (droughtPlotImg) {
+            droughtPlotImg.src = 'images/loading.gif';
+        }
+
+        const poll = async () => {
+            try {
+                const response = await fetch(`/predict_lstm_drought?region=${region}`);
+                const data = await response.json();
+
+                if (data.status === 'calculating') {
+                    if (attempts < maxAttempts) {
+                        attempts++;
+                        setTimeout(poll, 5000); // 5 saniye bekle
+                    } else {
+                        throw new Error('LSTM calculation timeout - please try again');
+                    }
+                } else if (data.error) {
+                    throw new Error(data.error);
+                } else {
+                    // LSTM verileri hazır, UI'ı güncelle
+                    updateLSTMVisualizations(data);
+                }
+            } catch (error) {
+                console.error('Error polling LSTM data:', error);
+                // Hata durumunda UI'da göster
+                if (temperaturePlotImg) {
+                    temperaturePlotImg.src = 'images/error.png';
+                    temperaturePlotImg.alt = 'Error loading temperature data: ' + error.message;
+                }
+                if (droughtPlotImg) {
+                    droughtPlotImg.src = 'images/error.png';
+                    droughtPlotImg.alt = 'Error loading drought data: ' + error.message;
+                }
+            }
+        };
+
+        poll();
+    }
+
+    // LSTM görselleştirmelerini güncelle
+    function updateLSTMVisualizations(data) {
+        if (data.temperature_plot) {
+            const temperaturePlotImg = document.getElementById('temperaturePlot');
+            if (temperaturePlotImg) {
+                temperaturePlotImg.src = 'data:image/png;base64,' + data.temperature_plot;
+            } else {
+                console.warn('Temperature plot element not found');
+            }
+        }
+
+        if (data.drought_plot) {
+            const droughtPlotImg = document.getElementById('droughtPlot');
+            if (droughtPlotImg) {
+                droughtPlotImg.src = 'data:image/png;base64,' + data.drought_plot;
+            } else {
+                console.warn('Drought plot element not found');
+            }
         }
     }
 
@@ -176,52 +262,60 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error(ndviData.error);
             }
 
-            // Get LSTM drought score
-            console.log('Fetching LSTM drought score...');
-            let lstmScore = null;
-            let lstmTrendPlot = null;
-            try {
-                const lstmResponse = await fetch(`/predict_lstm_drought?region=${region}`);
-                if (lstmResponse.ok) {
-                    const lstmData = await lstmResponse.json();
-                    lstmScore = lstmData.score;
-                    lstmTrendPlot = lstmData.trend_plot;
-                } else {
-                    console.warn('LSTM drought score fetch failed');
-                }
-            } catch (e) {
-                console.warn('LSTM drought score fetch error:', e);
-            }
-
-            // Update UI with results
+            // Update UI with initial results
             console.log('Updating UI...');
-            selectedRegion.textContent = `Selected region: ${region.charAt(0).toUpperCase() + region.slice(1)}`;
+            const selectedRegionElement = document.getElementById('selectedRegion');
+            if (selectedRegionElement) {
+                selectedRegionElement.textContent = `Selected region: ${region.charAt(0).toUpperCase() + region.slice(1)}`;
+            }
 
             // Update drought analysis visualizations
             const heatmapImg = document.getElementById('droughtHeatmap');
-            if (!heatmapImg) {
-                throw new Error('Could not find heatmap image element');
+            if (heatmapImg && droughtData.heatmap_image) {
+                heatmapImg.src = 'data:image/png;base64,' + droughtData.heatmap_image;
+            } else {
+                console.warn('Heatmap image or element not found');
             }
 
-            console.log('Updating images...');
-            heatmapImg.src = 'data:image/png;base64,' + droughtData.heatmap_image;
+            const classificationImg = document.getElementById('classificationImage');
+            if (classificationImg && droughtData.classification_image) {
+                classificationImg.src = 'data:image/png;base64,' + droughtData.classification_image;
+            } else {
+                console.warn('Classification image or element not found');
+            }
 
             // Update NDVI prediction visualizations
             const ndviPlotImg = document.getElementById('ndviPlot');
-            if (!ndviPlotImg) {
-                throw new Error('Could not find NDVI plot image element');
+            console.log('NDVI data received:', ndviData);
+            if (ndviPlotImg && ndviData.plot_image) {
+                console.log('Updating NDVI plot image');
+                ndviPlotImg.src = 'data:image/png;base64,' + ndviData.plot_image;
+                if (ndviData.future_ndvi) {
+                    console.log('Updating future NDVI table with data:', ndviData.future_ndvi);
+                    updateFutureNdviTable(ndviData.future_ndvi);
+                } else {
+                    console.warn('No future NDVI data available');
+                }
+            } else {
+                console.warn('NDVI plot image or element not found', {
+                    hasPlotImg: !!ndviPlotImg,
+                    hasPlotImage: !!ndviData?.plot_image
+                });
+                if (ndviPlotImg) {
+                    ndviPlotImg.src = 'images/error.png';
+                    ndviPlotImg.alt = 'Error loading NDVI plot';
+                }
             }
-            ndviPlotImg.src = 'data:image/png;base64,' + ndviData.plot_image;
-            updateFutureNdviTable(ndviData.future_ndvi);
 
-            // Update LSTM trend plot visualization
-            const lstmTrendImg = document.getElementById('lstmTrendPlot');
-            if (lstmTrendImg && lstmTrendPlot) {
-                lstmTrendImg.src = 'data:image/png;base64,' + lstmTrendPlot;
-            }
+            // Start polling for LSTM data
+            pollLSTMData(region);
 
-            // Update statistics
-            updateStats(droughtData.stats, ndviData, lstmScore);
+            // Update statistics with initial data
+            updateStats(
+                droughtData.stats || { drought_ratio: 0 },
+                ndviData.stats || { last_ndvi: null },
+                null
+            );
 
             console.log('Showing results...');
             showResults();

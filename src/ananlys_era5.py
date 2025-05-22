@@ -1,9 +1,16 @@
+#!/usr/bin/env python3
 """
-LSTM tabanlı sıcaklık ve zaman girdileriyle kuraklık skoru tahmini modülü.
-Bu modül, model ve scaler'ları yükler ve tahmin fonksiyonu sunar.
-Doğrudan çalıştırılırsa CLI üzerinden test edilebilir.
+LSTM tabanlı sıcaklık ve zaman girdileriyle kuraklık skoru tahmini ve
+sıcaklık trendi + LSTM tahmini modülü.
+
+- ERA5 verisini çeker,
+- Sıcaklık trendini görselleştirir,
+- LSTM ile kaydırmalı pencere (sliding window) üzerinden tahmin yapar,
+  her bir tahmini konsola basar ve grafik olarak kaydeder.
+- Komut satırından bölge ve tarih aralığı ile çalıştırılabilir.
 """
 import os
+import sys
 import numpy as np
 import pickle
 from tensorflow.keras.models import load_model
@@ -14,6 +21,8 @@ import pandas as pd
 import ee
 import argparse
 import matplotlib.dates as mdates
+
+# Earth Engine kimlik doğrulama
 ee.Authenticate(auth_mode='notebook')
 ee.Initialize()
 
@@ -23,181 +32,243 @@ def get_era5_temp_precip(region, start_date, end_date):
                   .filterBounds(region))
     def extract_vals(img):
         date = img.date().format('YYYY-MM-dd')
-        temp = img.select('mean_2m_air_temperature').reduceRegion(
-            reducer=ee.Reducer.mean(), geometry=region, scale=10000).get('mean_2m_air_temperature')
-        precip = img.select('total_precipitation').reduceRegion(
-            reducer=ee.Reducer.mean(), geometry=region, scale=10000).get('total_precipitation')
+        temp = img.select('mean_2m_air_temperature') \
+                  .reduceRegion(ee.Reducer.mean(), region, 10000) \
+                  .get('mean_2m_air_temperature')
+        precip = img.select('total_precipitation') \
+                     .reduceRegion(ee.Reducer.mean(), region, 10000) \
+                     .get('total_precipitation')
         return ee.Feature(None, {'date': date, 'temp': temp, 'precip': precip})
     features = collection.map(extract_vals).getInfo()['features']
-    data = [(f['properties']['date'], f['properties']['temp'], f['properties']['precip'])
-            for f in features if f['properties']['temp'] is not None and f['properties']['precip'] is not None]
+    data = [
+        (f['properties']['date'],
+         f['properties']['temp'],
+         f['properties']['precip'])
+        for f in features
+        if f['properties']['temp'] is not None and f['properties']['precip'] is not None
+    ]
     return data
 
+# Model ve scaler yolları
+BASE_DIR      = os.path.dirname(__file__)
+MODEL_PATH    = "/Users/ahmetbekir/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data/models/lstm_temprature_model.h5"
+SCALER_X_PATH = "/Users/ahmetbekir/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data/scaler_X.pkl"
+SCALER_Y_PATH = "/Users/ahmetbekir/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data/scaler_y.pkl"
 
-# Örnek veri: [('2023-06-01', 25.3), ...]
-region = ee.Geometry.Point([32.8541, 39.9333])
-start_date = '2023-01-01'
-end_date = '2023-12-31'
-data = get_era5_temp_precip(region, start_date, end_date)
-df = pd.DataFrame(data, columns=['date', 'temp', 'precip'])
-df['date'] = pd.to_datetime(df['date'])
-df['month'] = df['date'].dt.month
-df['year'] = df['date'].dt.year
+# Model ve scaler'ları yükle
+try:
+    model     = load_model(MODEL_PATH, compile=False)
+    scaler_X  = pickle.load(open(SCALER_X_PATH, "rb"))
+    scaler_y  = pickle.load(open(SCALER_Y_PATH, "rb"))
+    print("Model ve scaler'lar başarıyla yüklendi.")
+except Exception as e:
+    print(f"Model yükleme hatası: {str(e)}")
+    sys.exit(1)
 
-# Model ve scaler'ları bir kez yükle
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '../models/lstm_temprature_model.h5')
-SCALER_X_PATH = os.path.join(os.path.dirname(__file__), '../scaler_X.pkl')
-SCALER_Y_PATH = os.path.join(os.path.dirname(__file__), '../scaler_y.pkl')
+# LSTM kaydırmalı pencere boyutu
+WINDOW_SIZE = 10
 
-model = load_model(MODEL_PATH, compile=False)
-scaler_X = pickle.load(open(SCALER_X_PATH, "rb"))
-scaler_y = pickle.load(open(SCALER_Y_PATH, "rb"))
-
-def predict_drought_score(temp: float, month: int, week: int) -> float:
+def sliding_lstm_preds(df, window=WINDOW_SIZE):
     """
-    LSTM modelini kullanarak kuraklık skorunu tahmin eder.
-    Args:
-        temp (float): Son gün sıcaklık (°C)
-        month (int): Ay (1-12)
-        week (int): Hafta (1-53)
-    Returns:
-        float: Tahmini kuraklık skoru
+    df içinden son window günün (temp, month, week) dizilerini kullanarak
+    LSTM modeliyle tahminler üretir.
+    Döner: (tarihler, tahminler)
     """
-    raw = np.array([[temp, month, week]])
-    x_scaled = scaler_X.transform(raw)
-    X_input = np.repeat(x_scaled[np.newaxis, :, :], 10, axis=1)  # (1,10,3)
-    y_scaled = model.predict(X_input)
-    score = float(scaler_y.inverse_transform(y_scaled)[0, 0])
-    return score
+    # Kelvin → Celsius
+    temps_C   = df['temp'].values - 273.15
+    months    = df['month'].values
+    weeks_iso = df['date'].dt.isocalendar().week.values
 
-def predict_drought_trend(temps, months, weeks):
-    """
-    LSTM modelini kullanarak birden fazla zaman noktası için kuraklık skorları tahmin eder.
-    Args:   
-        temps (list of float): Sıcaklık değerleri
-        months (list of int): Ay değerleri
-        weeks (list of int): Hafta değerleri
-    Returns:
-        list of float: Tahmini kuraklık skorları
-    """
-    scores = []
-    for temp, month, week in zip(temps, months, weeks):
-        score = predict_drought_score(temp, month, week)
-        scores.append(score)
-    return scores
+    print(f"\nDebug - Veri boyutları:")
+    print(f"temps_C shape: {temps_C.shape}")
+    print(f"months shape: {months.shape}")
+    print(f"weeks_iso shape: {weeks_iso.shape}")
 
-def plot_lstm_drought_trend(dates, scores, region_name):
-    plt.figure(figsize=(10, 5))
-    plt.plot(dates, scores, marker='o', label='LSTM Drought Score')
-    plt.title(f'LSTM Drought Trend - {region_name}')
-    plt.xlabel('Date')
-    plt.ylabel('Drought Score')
+    seqs = []
+    for i in range(window, len(df)):
+        raw_seq = np.vstack([
+            temps_C[i-window:i],
+            months[i-window:i],
+            weeks_iso[i-window:i]
+        ]).T  # (window, 3)
+        seqs.append(raw_seq)
+    X = np.array(seqs)  # (N, window, 3)
+
+    print(f"\nDebug - X shape: {X.shape}")
+
+    flat        = X.reshape(-1, 3)                # (N*window, 3)
+    flat_scaled = scaler_X.transform(flat)        # (N*window, 3)
+    X_scaled    = flat_scaled.reshape(-1, window, 3)  # (N, window, 3)
+
+    print(f"\nDebug - X_scaled shape: {X_scaled.shape}")
+
+    y_scaled = model.predict(X_scaled)             # (N, 1) veya (N, window, 1)
+    print(f"\nDebug - y_scaled shape: {y_scaled.shape}")
+    
+    preds    = scaler_y.inverse_transform(y_scaled)[:, 0]  # (N,)
+    print(f"\nDebug - preds shape: {preds.shape}")
+    print(f"Debug - İlk 5 tahmin: {preds[:5]}")
+
+    dates = df['date'].iloc[window:].dt.to_pydatetime()
+    return dates, preds
+
+def plot_and_save(df_dates, df_temps, dates_pred, lstm_preds, region_key):
+    """
+    Sıcaklık ve kuraklık skorlarını ayrı grafik dosyalarında çizer.
+    """
+    print(f"\nDebug - Grafik verileri:")
+    print(f"df_dates shape: {len(df_dates)}")
+    print(f"df_temps shape: {len(df_temps)}")
+    print(f"dates_pred shape: {len(dates_pred)}")
+    print(f"lstm_preds shape: {len(lstm_preds)}")
+    
+    # Sıcaklık grafiği
+    plt.figure(figsize=(12, 6))
+    plt.plot(df_dates, df_temps, color='tab:blue', label='Temperature')
+    plt.title(f'Temperature Trend - {region_key}')
+    plt.ylabel('Temperature (K)')
     plt.grid(True)
     plt.legend()
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    plt.xticks(rotation=45)
     plt.tight_layout()
+    
+    temp_fname = f'temperature_trend_{region_key}.png'
+    plt.savefig(temp_fname)
+    print(f"\nSıcaklık grafiği kaydedildi: {temp_fname}")
+    plt.close()
+    
+    # Kuraklık skoru grafiği
+    if len(lstm_preds):
+        print("\nDebug - LSTM tahminleri çiziliyor...")
+        plt.figure(figsize=(12, 6))
+        plt.plot(dates_pred, lstm_preds, color='tab:red', label='Drought Score')
+        plt.title(f'Drought Score Prediction - {region_key}')
+        plt.ylabel('Drought Score')
+        plt.grid(True)
+        plt.legend()
+        plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        
+        drought_fname = f'drought_score_{region_key}.png'
+        plt.savefig(drought_fname)
+        print(f"Kuraklık skoru grafiği kaydedildi: {drought_fname}")
+        plt.close()
+    else:
+        print("\nDebug - LSTM tahminleri boş!")
+
+def get_lstm_trend_and_plot(region_key):
+    """
+    Belirli bir bölge için LSTM trendini ve grafiklerini üretir.
+    Returns:
+        tuple: (scores, plot_base64)
+    """
+    # Son 1 yıllık veriyi al
+    end_date = '2020-12-31'
+    start_date = '2014-01-01'
+    
+    region_dict = {
+        "munich":      ee.Geometry.Point([11.5761, 48.1371]).buffer(20000),
+        "sanliurfa":   ee.Geometry.Point([37.1674, 38.7926]).buffer(20000),
+        "punjab":      ee.Geometry.Point([75.3412, 31.1471]).buffer(20000),
+        "gujarat":     ee.Geometry.Point([72.5714, 23.0225]).buffer(20000),
+        "yunnan":      ee.Geometry.Point([102.7123, 23.0225]).buffer(20000),
+        "nsw":         ee.Geometry.Point([151.2153, -33.8568]).buffer(20000),
+        "cordoba":     ee.Geometry.Point([-64.1810, -31.4135]).buffer(20000),
+        "gauteng":     ee.Geometry.Point([28.0473, -26.2041]).buffer(20000),
+        "kano":        ee.Geometry.Point([8.4922, 12.0526]).buffer(20000),
+        "addis_ababa": ee.Geometry.Point([38.7577, 9.0450]).buffer(20000),
+        "iowa":        ee.Geometry.Point([-93.6208, 41.5236]).buffer(20000),
+        "zacatecas":   ee.Geometry.Point([-102.6993, 22.7735]).buffer(20000),
+        "mato_grosso": ee.Geometry.Point([-54.6900, -12.6425]).buffer(20000)
+    }
+    
+    if region_key not in region_dict:
+        raise ValueError(f"Bilinmeyen bölge: {region_key}")
+    
+    print(f"ERA5 verisi çekiliyor: {region_key} ({start_date} - {end_date})")
+    region = region_dict[region_key]
+    data = get_era5_temp_precip(region, start_date, end_date)
+    
+    df = pd.DataFrame(data, columns=['date', 'temp', 'precip'])
+    df['date']  = pd.to_datetime(df['date'])
+    df['month'] = df['date'].dt.month
+    df['year']  = df['date'].dt.year
+    
+    if df.empty:
+        raise ValueError("Hiç veri bulunamadı!")
+    
+    # LSTM tahminleri
+    if len(df) >= WINDOW_SIZE:
+        dates_pred, lstm_preds = sliding_lstm_preds(df, WINDOW_SIZE)
+    else:
+        raise ValueError(f"LSTM tahmini için en az {WINDOW_SIZE} gün veri gerekli.")
+    
+    # Grafikleri oluştur ve base64'e çevir
+    temp_plot = plot_temperature(df['date'].values, df['temp'].values, region_key)
+    drought_plot = plot_drought_score(dates_pred, lstm_preds, region_key)
+    
+    return lstm_preds, {'temperature_plot': temp_plot, 'drought_plot': drought_plot}
+
+def plot_temperature(dates, temps, region_key):
+    """Sıcaklık grafiğini oluşturur ve base64 olarak döner"""
+    plt.figure(figsize=(12, 6))
+    plt.plot(dates, temps, color='tab:blue', label='Temperature')
+    plt.title(f'Temperature Trend - {region_key}')
+    plt.ylabel('Temperature (K)')
+    plt.grid(True)
+    plt.legend()
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    
+    # Grafiği base64'e çevir
     buf = BytesIO()
     plt.savefig(buf, format='png')
     plt.close()
     buf.seek(0)
-    plot_base64 = base64.b64encode(buf.read()).decode('utf-8')
-    buf.close()
-    return plot_base64
+    return base64.b64encode(buf.read()).decode('utf-8')
 
-# Örnek: 12 aylık trend tahmini ve plot (test amaçlı)
-def get_lstm_trend_and_plot(region_name):
-    # Burada örnek olarak sabit sıcaklık, ay ve hafta değerleri kullanıyoruz
-    months = list(range(1, 13))
-    weeks = [23]*12
-    temps = [25.0]*12
-    dates = [f'2025-{m:02d}' for m in months]
-    scores = predict_drought_trend(temps, months, weeks)
-    plot_base64 = plot_lstm_drought_trend(dates, scores, region_name)
-    return scores, plot_base64
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ERA5 verisiyle sıcaklık ve yağış analizi")
-    parser.add_argument('--region', type=str, required=True, help='Bölge adı (ör: ankara)')
-    parser.add_argument('--start', type=str, required=True, help='Başlangıç tarihi (YYYY-MM-DD)')
-    parser.add_argument('--end', type=str, required=True, help='Bitiş tarihi (YYYY-MM-DD)')
-    args = parser.parse_args()
-
-    region_dict = {
-        "ankara": ee.Geometry.Point([32.8541, 39.9333]),
-        "istanbul": ee.Geometry.Point([28.9784, 41.0082]).buffer(10000),
-        "munich": ee.Geometry.Point([11.5761, 48.1371]).buffer(20000),
-        "şanlıurfa": ee.Geometry.Point([37.1674, 38.7926]).buffer(20000),
-        "punjab": ee.Geometry.Point([75.3412, 31.1471]).buffer(20000),
-        "gujarat": ee.Geometry.Point([72.5714, 23.0225]).buffer(20000),
-    }
-    if args.region not in region_dict:
-        raise ValueError(f"Bilinmeyen bölge: {args.region}. Tanımlı bölgeler: {list(region_dict.keys())}")
-    region = region_dict[args.region]
-
-    print(f"ERA5 verisi çekiliyor: {args.region} ({args.start} - {args.end})")
-    data = get_era5_temp_precip(region, args.start, args.end)
-    df = pd.DataFrame(data, columns=['date', 'temp', 'precip'])
-    df['date'] = pd.to_datetime(df['date'])
-    df['month'] = df['date'].dt.month
-    df['year'] = df['date'].dt.year
-
-    if df.empty:
-        print("Hiç veri bulunamadı!")
-        exit()
-
-    min_date = df['date'].min()
-    max_date = df['date'].max()
-    print(f"Veri aralığı: {min_date.date()} - {max_date.date()}")
-
-    last_row = df.iloc[-1]
-    print(f"Son gün sıcaklık: {last_row['temp']:.2f} K, Son gün yağış: {last_row['precip']:.2f} m")
-
-    # Son yıl ve Haziran sonrası
-    last_year = max_date.year
-    start_june = pd.Timestamp(year=last_year, month=6, day=1)
-    if max_date < start_june:
-        print(f"{last_year} yılında Haziran sonrası veri yok.")
-    else:
-        mask = (df['date'] >= start_june) & (df['date'] <= max_date)
-        df_filtered = df.loc[mask]
-        monthly_means = df_filtered.groupby(['year', 'month']).agg({'temp': 'mean', 'precip': 'mean'}).reset_index()
-        print(f"\n{last_year} Haziran-{max_date.strftime('%B')} Aylık Ortalama Sıcaklık ve Yağış:")
-        print(monthly_means)
-
-    # LSTM tahmini için yeterli veri yoksa uyarı
-    window_size = 10
-    lstm_preds = []
-    if len(df) > window_size:
-        for i in range(len(df) - window_size):
-            window = df['temp'].values[i:i+window_size]
-            month = df['month'].values[i+window_size-1]
-            week = df['date'].dt.isocalendar().week.values[i+window_size-1]
-            raw = np.array([[window[-1], month, week]])
-            x_scaled = scaler_X.transform(raw)
-            X_input = np.repeat(x_scaled[np.newaxis, :, :], 10, axis=1)
-            y_scaled = model.predict(X_input)
-            pred = float(scaler_y.inverse_transform(y_scaled)[0, 0])
-            lstm_preds.append(pred)
-    else:
-        print("LSTM tahmini için yeterli veri yok.")
-
-    # Yeni tarih aralığı oluştur (ör: 2025-01-01'den veri uzunluğu kadar ay/gün)
-    fake_start = pd.Timestamp('2025-01-01')
-    date_range = pd.date_range(start=fake_start, periods=len(df), freq='D')  # Günlük veri için
-    date_range_lstm = date_range[window_size:]  # LSTM tahminleri için
-
-    plt.figure(figsize=(10,5))
-    plt.plot(date_range, df['temp'], label='Temperature (K)')
-    if len(lstm_preds) > 0:
-        plt.plot(date_range_lstm, lstm_preds, label='LSTM Prediction', linestyle='--')
-
+def plot_drought_score(dates, scores, region_key):
+    """Kuraklık skoru grafiğini oluşturur ve base64 olarak döner"""
+    plt.figure(figsize=(12, 6))
+    plt.plot(dates, scores, color='tab:red', label='Drought Score')
+    plt.title(f'Drought Score Prediction - {region_key}')
+    plt.ylabel('Drought Score')
+    plt.grid(True)
     plt.legend()
-    plt.title(f'Temperature Trend & LSTM Prediction - {args.region} (2025 Takvimiyle)')
-    plt.xlabel('Date')
-    plt.ylabel('Temperature (K)')
-
-    # X eksenini ay olarak göster
-    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=6))
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.show()
+    
+    # Grafiği base64'e çevir
+    buf = BytesIO()
+    plt.savefig(buf, format='png')
+    plt.close()
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode('utf-8')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="ERA5 verisiyle sıcaklık ve yağış analizi + LSTM tahmini"
+    )
+    parser.add_argument('--region', type=str, required=True,
+                        help='Bölge adı (ör: munich, şanlıurfa, punjab, gujarat, yunnan, nsw, cordoba, gauteng, kano, addis_ababa, iowa, zacatecas, mato_grosso)')
+    parser.add_argument('--start', type=str, required=True,
+                        help='Başlangıç tarihi (YYYY-MM-DD)')
+    parser.add_argument('--end', type=str, required=True,
+                        help='Bitiş tarihi (YYYY-MM-DD)')
+    args = parser.parse_args()
+    
+    try:
+        scores, plots = get_lstm_trend_and_plot(args.region)
+        print(f"\nSon kuraklık skoru: {scores[-1]:.2f}")
+        print("Grafikler oluşturuldu.")
+    except Exception as e:
+        print(f"Hata: {str(e)}")
+        sys.exit(1)
