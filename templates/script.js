@@ -10,6 +10,9 @@ function handleRegionClick(region) {
 
     // Fetch and analyze news for the selected region
     fetchNewsAnalysis(region);
+
+    // Fetch drought analysis data
+    fetchDroughtAnalysis(region);
 }
 
 function updateSelectedRegionUI(region) {
@@ -18,6 +21,67 @@ function updateSelectedRegionUI(region) {
     if (regionInfo) {
         regionInfo.textContent = `Selected Region: ${region}`;
     }
+}
+
+function getDroughtStatus(value) {
+    if (value >= 0.5) {
+        return { class: 'good', text: 'Good' };
+    } else if (value >= 0.2) {
+        return { class: 'moderate', text: 'Moderate' };
+    } else {
+        return { class: 'poor', text: 'Poor' };
+    }
+}
+
+function updateDroughtAnalysisUI(data) {
+    // Update NDVI value and status
+    const ndviValue = document.getElementById('last-ndvi');
+    const ndviStatus = document.getElementById('ndvi-status');
+    if (ndviValue && ndviStatus) {
+        ndviValue.textContent = data.ndvi.toFixed(3);
+        const status = getDroughtStatus(data.ndvi);
+        ndviStatus.className = `drought-status ${status.class}`;
+        ndviStatus.textContent = status.text;
+    }
+
+    // Update LSTM score and status
+    const lstmScore = document.getElementById('lstm-score');
+    const lstmStatus = document.getElementById('lstm-status');
+    if (lstmScore && lstmStatus) {
+        lstmScore.textContent = data.lstm_score.toFixed(3);
+        const status = getDroughtStatus(data.lstm_score);
+        lstmStatus.className = `drought-status ${status.class}`;
+        lstmStatus.textContent = status.text;
+    }
+
+    // Update drought chart
+    const droughtChart = document.getElementById('drought-chart');
+    if (droughtChart && data.drought_plot) {
+        droughtChart.src = `data:image/png;base64,${data.drought_plot}`;
+    }
+}
+
+function fetchDroughtAnalysis(region) {
+    fetch('/analyze_drought', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ region: region })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error:', data.error);
+                showError(data.error);
+                return;
+            }
+            updateDroughtAnalysisUI(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Failed to fetch drought analysis. Please try again.');
+        });
 }
 
 function fetchNewsAnalysis(region) {

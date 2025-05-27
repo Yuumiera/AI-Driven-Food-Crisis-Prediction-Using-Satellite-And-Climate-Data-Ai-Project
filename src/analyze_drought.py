@@ -221,8 +221,8 @@ def analyze_drought_for_region(region_name):
             "punjab": "test_tifs/punjab_05-2025.tif",
             "gujarat": "test_tifs/gujarat_05-2025.tif",
             "iowa": "test_tifs/iowa_05-2025.tif",
-            "zacatecas": "test_tifs/zacatecas_05-2025.tif",
-            "mato_grosso": "test_tifs/mato_grosso_05-2025.tif"
+            #"zacatecas": "test_tifs/zacatecas_05-2025.tif",
+            #"mato_grosso": "test_tifs/mato_grosso_05-2025.tif"
         }
 
         tif_path = REGION_TO_TIF[region_name]

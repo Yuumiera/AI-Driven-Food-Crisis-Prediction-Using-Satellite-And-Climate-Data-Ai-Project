@@ -34,8 +34,8 @@ REGION_TO_CSV = {
     "punjab": "ndvi_punjab.csv",
     "gujarat": "ndvi_gujarat.csv",
     "iowa": "ndvi_iowa.csv",
-    "zacatecas": "ndvi_zacatecas.csv",
-    "mato_grosso": "ndvi_mato_grosso.csv",
+    #"zacatecas": "ndvi_zacatecas.csv",
+    #"mato_grosso": "ndvi_mato_grosso.csv",
     "nsw": "ndvi_nsw.csv"
 }
 

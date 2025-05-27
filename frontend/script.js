@@ -19,13 +19,13 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'munich', name: 'Münih, Almanya' },
         { id: 'iowa', name: 'Iowa, ABD' },
         { id: 'kano', name: 'Kano, Nijerya' },
-        { id: 'zacatecas', name: 'Zacatecas, Meksika' },
+        //{ id: 'zacatecas', name: 'Zacatecas, Meksika' },
         { id: 'gauteng', name: 'Gauteng, Güney Afrika' },
         { id: 'addis_ababa', name: 'Addis Ababa, Etiyopya' },
         { id: 'yunnan', name: 'Yunnan, Çin' },
         { id: 'gujarat', name: 'Gujarat, Hindistan' },
         { id: 'cordoba', name: 'Córdoba, Arjantin' },
-        { id: 'mato_grosso', name: 'Mato Grosso, Brezilya' },
+        //{ id: 'mato_grosso', name: 'Mato Grosso, Brezilya' },
         { id: 'nsw', name: 'New South Wales, Avustralya' }
     ];
 

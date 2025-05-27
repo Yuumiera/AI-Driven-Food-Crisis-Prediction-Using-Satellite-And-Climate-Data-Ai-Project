@@ -73,6 +73,26 @@
             color: #007bff;
         }
 
+        .drought-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .drought-status.good {
+            background-color: #28a745;
+        }
+
+        .drought-status.moderate {
+            background-color: #ffc107;
+        }
+
+        .drought-status.poor {
+            background-color: #dc3545;
+        }
+
         .articles-list {
             margin-top: 20px;
         }
@@ -127,12 +147,41 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+
+        .chart-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
         <div id="region-info"></div>
+
+        <!-- Analysis Statistics Section -->
+        <div class="analysis-section">
+            <h3>Analysis Statistics</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Last NDVI</h4>
+                    <div class="value" id="last-ndvi">-</div>
+                    <div class="drought-status" id="ndvi-status"></div>
+                </div>
+                <div class="stat-card">
+                    <h4>LSTM Drought Score</h4>
+                    <div class="value" id="lstm-score">-</div>
+                    <div class="drought-status" id="lstm-status"></div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <img id="drought-chart" src="" alt="Drought Analysis Chart" style="width: 100%;">
+            </div>
+        </div>
+
         <div id="news-analysis">
             <div class="analysis-section">
                 <h3>News Analysis Overview</h3>
