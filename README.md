@@ -4,7 +4,7 @@ A robust end-to-end system that leverages satellite imagery, climate reanalysis,
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
 - **Drought Risk Mapping**: Deep learning (CNN) on satellite NDVI and climate data for pixel-level drought classification.
 - **NDVI & Climate Forecasting**: Bi-LSTM models predict vegetation (NDVI) and drought risk from climate time series.
@@ -14,7 +14,7 @@ A robust end-to-end system that leverages satellite imagery, climate reanalysis,
 
 ---
 
-## 🏗️ Architecture Overview
+##  Architecture Overview
 
 ### Data Sources
 - **Satellite**: Google Earth Engine (NDVI, EVI, land cover)
@@ -32,7 +32,7 @@ A robust end-to-end system that leverages satellite imagery, climate reanalysis,
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 ├── ai_model/
@@ -64,7 +64,7 @@ A robust end-to-end system that leverages satellite imagery, climate reanalysis,
 
 ---
 
-## ⚙️ Installation & Setup
+## Installation & Setup
 
 ### Prerequisites
 - Python 3.8+
@@ -91,7 +91,7 @@ export ERA5_API_KEY="your_era5_key"
 
 ---
 
-## 🖥️ Usage
+##  Usage
 
 ### Web Application
 ```bash
@@ -116,7 +116,7 @@ python main.py --infer --region "Sanliurfa" --forecast 7
 
 ---
 
-## 🏋️ Model Training & Evaluation
+##  Model Training & Evaluation
 
 ### Data Preparation
 ```bash
@@ -140,7 +140,7 @@ python src/evaluation/metrics.py --model_dir models/
 
 ---
 
-## 📊 Visualization & Outputs
+##  Visualization & Outputs
 - **Drought Maps**: Heatmaps and risk classifications for each region
 - **Time-Series Plots**: NDVI and temperature/drought trends
 - **News Dashboard**: Sentiment gauge and risk-term word clouds
@@ -148,19 +148,7 @@ python src/evaluation/metrics.py --model_dir models/
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 Pull requests and issues are welcome! Please open an issue to discuss major changes.
-
----
-
-## 📄 License
-This project is licensed under the MIT License.
-
----
-
-## 📬 Contact
-- **Author**: Ahmet Bekir
-- **GitHub**: [ahmetbekir22](https://github.com/ahmetbekir22)
-- **Email**: [your-email@example.com]
 
 ---
