@@ -75,7 +75,7 @@ A robust end-to-end system that leverages satellite imagery, climate reanalysis,
 
 ### Environment Setup
 ```bash
-git clone https://github.com/ahmetbekir22/AI-Driven-Food-Crisis-Prediction.git
+git clone https://github.com/Yuumiera/AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data-Ai-Project.git
 cd AI-Driven-Food-Crisis-Prediction-Using-Satellite-And-Climate-Data
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
